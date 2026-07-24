@@ -1,0 +1,30 @@
+            </div>
+
+            <!-- Form -->
+            <form id="checkinForm">
+              <!-- Hidden fields populated from URL -->
+              <input type="hidden" id="eventName">
+              <input type="hidden" id="creatorName">
+              <input type="hidden" id="creatorId">
+
+              <!-- Attendee Name -->
+              <div class="field">
+                <label class="label">Your Name</label>
+                <div class="control">
+                  <input class="input" type="text" id="attendeeName" placeholder="e.g. Alex Mercer" required>
+                </div>
+              </div>
+
+              <!-- Attendee Email -->
+              <div class="field">
+                <label class="label">Your Email</label>
+                <div class="control">
+                  <input class="input" type="email" id="attendeeEmail" placeholder="e.g. alex@example.com" required>
+                </div>
+              </div>
+
+              <!-- Submit Button -->
+              <div class="field mt-5">
+                <div class="control">
+                  <button type="submit" class="button is-primary is-fullwidth" id="submitBtn">
+                    Confirm Attendance
