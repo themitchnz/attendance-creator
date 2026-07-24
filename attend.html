@@ -1,3 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Check-in</title>
+  <link rel="stylesheet" href="css/bulma.min.css">
+  <script src="js/xapiwrapper.min.js"></script>
+</head>
+<body class="has-background-light" style="min-height: 100vh;">
+  <section class="section">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-two-thirds-tablet is-half-desktop">
+          <div class="box">
+            
+            <!-- Event Banner Header -->
+            <div class="has-text-centered mb-5">
+              <span class="tag is-info is-light is-medium mb-2" id="hostDisplay">Loading host...</span>
+              <h1 class="title is-3" id="eventDisplay">Event Check-in</h1>
+              <p class="subtitle is-6 text-muted">Please fill in your details to record your attendance.</p>
             </div>
 
             <!-- Form -->
@@ -5,7 +26,7 @@
               <!-- Hidden fields populated from URL -->
               <input type="hidden" id="eventName">
               <input type="hidden" id="creatorName">
-              <input type="hidden" id="creatorId">
+              <input type="hidden" id="creatorEmail">
 
               <!-- Attendee Name -->
               <div class="field">
@@ -28,3 +49,97 @@
                 <div class="control">
                   <button type="submit" class="button is-primary is-fullwidth" id="submitBtn">
                     Confirm Attendance
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <!-- Success Notification -->
+            <div id="successMessage" class="notification is-success is-light is-hidden mt-5 has-text-centered">
+              <p class="title is-5 mb-2">Check-in Complete!</p>
+              <p>Your attendance statement has been successfully logged.</p>
+            </div>
+
+            <!-- Error Notification -->
+            <div id="errorMessage" class="notification is-danger is-light is-hidden mt-5 has-text-centered">
+              <p id="errorText">Failed to send attendance record. Please try again.</p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // -------------------------------------------------------------
+    // LRS CONFIGURATION - Replace with your endpoint & credentials
+    // -------------------------------------------------------------
+    const conf = {
+    "endpoint" : "http://localhost:8081/xapi/",
+    "auth" : "Basic " + btoa('my_key:my_secret'), //needs the space in basic lol
+};
+
+    // 1. Extract URL Parameters on Load
+    document.addEventListener('DOMContentLoaded', () => {
+
+    ADL.XAPIWrapper.changeConfig(conf);
+    console.log("Config correct: " + ADL.XAPIWrapper.testConfig());
+
+      const params = new URLSearchParams(window.location.search);
+
+      const event = params.get('event') || 'Event Attendance';
+      const creator = params.get('creator') || 'Organizer';
+      const email = params.get('email') || '';
+
+      // Set input values & UI display
+      document.getElementById('eventName').value = event;
+      document.getElementById('creatorName').value = creator;
+      document.getElementById('creatorEmail').value = email;
+
+      document.getElementById('eventDisplay').textContent = event;
+      document.getElementById('hostDisplay').textContent = `Hosted by ${creator}`;
+    });
+
+    // 2. Handle Form Submission & xAPI Construction
+    document.getElementById('checkinForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.classList.add('is-loading');
+
+      const attendeeName = document.getElementById('attendeeName').value.trim();
+      const attendeeEmail = document.getElementById('attendeeEmail').value.trim();
+      const eventName = document.getElementById('eventName').value;
+      const creatorName = document.getElementById('creatorName').value;
+      const creatorEmail = document.getElementById('creatorEmail').value;
+
+
+    var stmt = new ADL.XAPIStatement(
+        new ADL.XAPIStatement.Agent(ADL.XAPIWrapper.hash(`mailto:${attendeeEmail}`), attendeeName),
+        new ADL.XAPIStatement.Verb('http://adlnet.gov/expapi/verbs/attended', 'attended'),
+        new ADL.XAPIStatement.Activity('http://adlnet.gov/expapi/verbs/activity', eventName),
+        
+
+    );
+
+    stmt.generateId();
+
+
+    ADL.XAPIWrapper.sendStatement(stmt, function(response, obj) {  
+        console.log("[" + obj.id + "]: " + response.status + " - " + response.statusText);
+
+        if (response.ok || response.status === 200) {
+          document.getElementById('checkinForm').classList.add('is-hidden');
+          document.getElementById('errorMessage').classList.add('is-hidden');
+          document.getElementById('successMessage').classList.remove('is-hidden');
+        } else {
+          throw new Error(`LRS responded with status: ${response.status}`);
+        }
+      } 
+    );
+      
+    });
+  </script>
+</body>
+</html>
