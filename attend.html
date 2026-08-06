@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="css/bulma.min.css">
   <script src="js/xapiwrapper.min.js"></script>
 </head>
-<body class="has-background-light" style="min-height: 100vh;">
+<body class="has-background-dark" style="min-height: 100vh;">
   <section class="section">
     <div class="container">
       <div class="columns is-centered">
@@ -16,17 +16,17 @@
             
             <!-- Event Banner Header -->
             <div class="has-text-centered mb-5">
-              <span class="tag is-info is-light is-medium mb-2" id="hostDisplay">Loading host...</span>
+              <span class="tag is-warning is-light is-medium mb-2" id="hostDisplay">Loading host...</span>
               <h1 class="title is-3" id="eventDisplay">Event Check-in</h1>
-              <p class="subtitle is-6 text-muted">Please fill in your details to record your attendance.</p>
+              <p class="subtitle is-6">Please fill in your details to record your attendance.</p>
             </div>
 
             <!-- Form -->
             <form id="checkinForm">
               <!-- Hidden fields populated from URL -->
-              <input type="hidden" id="eventName">
-              <input type="hidden" id="creatorName">
-              <input type="hidden" id="creatorEmail">
+              <input type="hidden" id="eventName" />
+              <input type="hidden" id="creatorName" />
+              <input type="hidden" id="creatorEmail" />
 
               <!-- Attendee Name -->
               <div class="field">
@@ -38,16 +38,16 @@
 
               <!-- Attendee Email -->
               <div class="field">
-                <label class="label">Your Email</label>
+                <label class="label">Your ID</label>
                 <div class="control">
-                  <input class="input" type="email" id="attendeeEmail" placeholder="e.g. alex@example.com" required>
+                  <input class="input" type="text" id="attendeeId" placeholder="e.g. 123456" required>
                 </div>
               </div>
 
               <!-- Submit Button -->
               <div class="field mt-5">
                 <div class="control">
-                  <button type="submit" class="button is-primary is-fullwidth" id="submitBtn">
+                  <button type="submit" class="button is-warning is-fullwidth" id="submitBtn">
                     Confirm Attendance
                   </button>
                 </div>
@@ -75,30 +75,30 @@
     // -------------------------------------------------------------
     // LRS CONFIGURATION - Replace with your endpoint & credentials
     // -------------------------------------------------------------
-    const conf = {
-    "endpoint" : "https://cloud.scorm.com/lrs/ZLMBGT2J02/",
-    "auth" : "Basic " + btoa('lblwPY1JDLVBeTs3AGQ:i50iIVTUQKj7E78nCU4'), //needs the space in basic lol
-};
+
 
     // 1. Extract URL Parameters on Load
     document.addEventListener('DOMContentLoaded', () => {
 
-    ADL.XAPIWrapper.changeConfig(conf);
-    console.log("Config correct: " + ADL.XAPIWrapper.testConfig());
+    
 
       const params = new URLSearchParams(window.location.search);
+      const encodedData = params.get('data');
+      let eventData = {};
 
-      const event = params.get('event') || 'Event Attendance';
-      const creator = params.get('creator') || 'Organizer';
-      const email = params.get('email') || '';
+      if (encodedData) {
+        try {
+          eventData = JSON.parse(atob(encodedData));
+        } catch (e) {
+          console.error("Failed to decode or parse Base64 data from URL.", e);
+        }
+      }
 
       // Set input values & UI display
-      document.getElementById('eventName').value = event;
-      document.getElementById('creatorName').value = creator;
-      document.getElementById('creatorEmail').value = email;
-
-      document.getElementById('eventDisplay').textContent = event;
-      document.getElementById('hostDisplay').textContent = `Hosted by ${creator}`;
+      document.getElementById('eventName').value = eventData.event || 'Event Attendance';
+      document.getElementById('creatorName').value = eventData.creator || 'Organizer';
+      document.getElementById('eventDisplay').textContent = (eventData.event || 'Event Check-in').replace(/_/g, ' ');
+      document.getElementById('hostDisplay').textContent = `Hosted by ${eventData.creator || 'Organizer'}`;
     });
 
     // 2. Handle Form Submission & xAPI Construction
@@ -108,36 +108,94 @@
       const submitBtn = document.getElementById('submitBtn');
       submitBtn.classList.add('is-loading');
 
+      // Recreate variables for consistency with create.html
       const attendeeName = document.getElementById('attendeeName').value.trim();
-      const attendeeEmail = document.getElementById('attendeeEmail').value.trim();
-      const eventName = document.getElementById('eventName').value;
+      const attendeeId = document.getElementById('attendeeId').value.trim();
+      const eventNameWithSpaces = document.getElementById('eventName').value;
+      const eventNameForUrl = eventNameWithSpaces.replaceAll(' ', '');
       const creatorName = document.getElementById('creatorName').value;
-      const creatorEmail = document.getElementById('creatorEmail').value;
+      // We need the registration from the decoded data to build the activity ID
+      const registration = JSON.parse(atob(new URLSearchParams(window.location.search).get('data'))).reg;
+      const passwordField = JSON.parse(atob(new URLSearchParams(window.location.search).get('data'))).pw;
 
 
-    var stmt = new ADL.XAPIStatement(
-        new ADL.XAPIStatement.Agent(ADL.XAPIWrapper.hash(`mailto:${attendeeEmail}`), attendeeName),
-        new ADL.XAPIStatement.Verb('http://adlnet.gov/expapi/verbs/attended', 'attended'),
-        new ADL.XAPIStatement.Activity('http://adlnet.gov/expapi/verbs/activity', eventName),
-        
+       var statement = {
+      //actor
+      "actor" : {
+        "objectType" : "Agent",
+        "name" : attendeeName,
+        "account": {
+          "homePage": "https://nzdf.mil.nz",
+          "name": attendeeId
+          }
+        },
 
-    );
+        //verb
+        "verb" : ADL.verbs.attended,
 
-    stmt.generateId();
+        //object
+        "object" : {
+          "id" : `https://nzdf.mil.nz/xapi/activities/events/${registration}/${encodeURIComponent(eventNameForUrl)}`,
+          "definition" : {
+            "name" : {
+              "en" : eventNameWithSpaces
+            },
+          },
+        },
+
+        "context" : {
+          "registration" : registration,
+          "platform" : "NZ ADL Event Creator",
+        },
+
+        "id" : ADL.ruuid(),
+
+    }
+
+    console.log(statement);
 
 
-    ADL.XAPIWrapper.sendStatement(stmt, function(response, obj) {  
-        console.log("[" + obj.id + "]: " + response.status + " - " + response.statusText);
+     const WORKER_URL = "https://xapi.nzadl.deno.net/";
 
-        if (response.ok || response.status === 200) {
+    // Send statement to Cloudflare Worker via async fetch
+      try {
+        const response = await fetch(WORKER_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Pass": passwordField // Pass the password from targetUrl input
+          },
+          body: JSON.stringify(statement)
+        });
+
+        if (response.ok) {
+          console.log(`[${statement.id}]: Attendance statement successfully dispatched.`);
           document.getElementById('checkinForm').classList.add('is-hidden');
           document.getElementById('errorMessage').classList.add('is-hidden');
           document.getElementById('successMessage').classList.remove('is-hidden');
         } else {
-          throw new Error(`LRS responded with status: ${response.status}`);
+          const errData = await response.json().catch(() => ({}));
+          console.error(`Worker error (${response.status}):`, errData);
+          document.getElementById('errorText').textContent = `Failed to log attendance: ${errData.error || response.statusText}`;
+          document.getElementById('successMessage').classList.add('is-hidden');
+          document.getElementById('errorMessage').classList.remove('is-hidden');
         }
-      } 
-    );
+      } catch (err) {
+        console.error("Network error sending statement:", err);
+        document.getElementById('errorText').textContent = 'A network error occurred. Could not send attendance record.';
+        document.getElementById('successMessage').classList.add('is-hidden');
+        document.getElementById('errorMessage').classList.remove('is-hidden');
+      } finally {
+        // Re-enable the button
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.classList.remove('is-loading');
+        submitBtn.disabled = false;
+      }
+
+  
+
+
+
       
     });
   </script>

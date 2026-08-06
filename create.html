@@ -7,9 +7,10 @@
 
   <link rel="stylesheet" href="css/bulma.min.css">
 
+  <script src="js/xapiwrapper.min.js"></script>
   <script src="js/easy.qrcode.min.js"></script>
 </head>
-<body class="has-background-light" style="min-height: 100vh;">
+<body class="has-background-dark" style="min-height: 100vh;">
   <section class="section">
     <div class="container">
       <div class="columns is-centered">
@@ -20,18 +21,17 @@
             <form id="qrForm">
               <!-- Target Form URL -->
               <div class="field">
-                <label class="label">Target Form URL</label>
+                <label class="label">Password</label>
                 <div class="control">
-                  <input class="input" type="url" id="targetUrl" placeholder="http://127.0.0.1:5502/attend.html" required>
+                  <input class="input" type="text" id="targetUrl" placeholder="password" required>
                 </div>
-                <p class="help">The URL where attendees will submit their details.</p>
               </div>
 
               <!-- Event Name -->
               <div class="field">
                 <label class="label">Event / Location Name</label>
                 <div class="control">
-                  <input class="input" type="text" id="eventName" placeholder="Fleet Gym" required>
+                  <input class="input" type="text" id="eventName" placeholder="Event Name" required>
                 </div>
               </div>
 
@@ -39,7 +39,7 @@
               <div class="field">
                 <label class="label">Host Name</label>
                 <div class="control">
-                  <input class="input" type="text" id="creatorName" placeholder="Recruit PT swim" required>
+                  <input class="input" type="text" id="creatorName" placeholder="Host Name" required>
                 </div>
               </div>
 
@@ -47,15 +47,14 @@
               <div class="field">
                 <label class="label">Host ID</label>
                 <div class="control">
-                  <input class="input" type="text" id="creatorId" placeholder="e.g. 12345 or staff-alex" required>
+                  <input class="input" type="text" id="creatorId" placeholder="e.g. A12345" required>
                 </div>
-                <p class="help">A unique ID for the event creator/host.</p>
               </div>
 
               <!-- Submit Button -->
               <div class="field mt-5">
                 <div class="control">
-                  <button type="submit" class="button is-primary is-fullwidth">Generate QR Code</button>
+                  <button type="submit" class="button is-warning is-fullwidth">Generate QR Code</button>
                 </div>
               </div>
             </form>
@@ -80,6 +79,12 @@
               <div class="field mt-3">
                 <label class="label is-small">Encoded Link:</label>
                 <p class="is-size-7 has-text-grey-dark is-family-monospace" id="encodedUrlPreview" style="word-break: break-all;"></p>
+              </div>
+
+              <!-- Statement Status Notification -->
+              <div id="statementStatus" class="notification is-hidden mt-4 mx-auto" style="max-width: 75%;">
+                <button class="delete" id="closeStatusBtn"></button>
+                <span id="statementStatusText"></span>
               </div>
             </div>
 
@@ -116,38 +121,150 @@
     let currentFullUrl = '';
     let currentEventName = '';
 
-    document.getElementById('qrForm').addEventListener('submit', function (e) {
+    document.getElementById('qrForm').addEventListener('submit', async function (e) {
       e.preventDefault();
+      const submitButton = e.target.querySelector('button[type="submit"]');
 
-      const baseUrl = document.getElementById('targetUrl').value.trim();
-      currentEventName = document.getElementById('eventName').value.trim();
+      const baseUrl = "http://localhost:5502/attend.html";
+      const eventNameWithSpaces = document.getElementById('eventName').value.trim();
       const creatorName = document.getElementById('creatorName').value.trim();
       const creatorId = document.getElementById('creatorId').value.trim();
+      const passwordField = document.getElementById('targetUrl').value.trim();
+
+      const registration = ADL.ruuid();
+      const eventNameForUrl = eventNameWithSpaces.replaceAll(' ', '');
 
       // 1. Construct URL with query parameters
+      const dataToEncode = {
+        pw: passwordField,
+        event: eventNameWithSpaces,
+        creator: creatorName,
+        reg: registration
+      };
+
+      // JSON.stringify, then Base64 encode
+      const encodedData = btoa(JSON.stringify(dataToEncode));
+
       const url = new URL(baseUrl);
-      url.searchParams.set('event', currentEventName);
-      url.searchParams.set('creator', creatorName);
-      url.searchParams.set('id', creatorId);
+      url.searchParams.set('data', encodedData);
       currentFullUrl = url.toString();
+      
 
       // 2. Render standard inline QR code
       const inlineContainer = document.getElementById('qrcode');
       inlineContainer.innerHTML = '';
       new QRCode(inlineContainer, {
         text: currentFullUrl,
-        width: 180,
-        height: 180,
+        width: 256,
+        height: 256,
         correctLevel: QRCode.CorrectLevel.H
       });
 
       // 3. Update Text Previews
       document.getElementById('encodedUrlPreview').textContent = currentFullUrl;
-      document.getElementById('modalEventTitle').textContent = currentEventName;
+      document.getElementById('modalEventTitle').textContent = eventNameWithSpaces;
       document.getElementById('modalCreatorTitle').textContent = `Hosted by ${creatorName}`;
 
       // 4. Show output section
       document.getElementById('qrResult').classList.remove('is-hidden');
+
+      // 5. Prepare and send statement (with visual feedback)
+      const statementStatus = document.getElementById('statementStatus');
+      statementStatus.classList.remove('is-hidden', 'is-success', 'is-danger', 'is-light');
+      const statementStatusText = document.getElementById('statementStatusText');
+      statementStatus.classList.add('is-info', 'is-light');
+      statementStatusText.textContent = 'Logging creation event...';
+
+      submitButton.classList.add('is-loading');
+      submitButton.disabled = true;
+      
+    var statement = {
+      //actor
+      "actor" : {
+        "objectType" : "Agent",
+        "name" : creatorName,
+        "account": {
+          "homePage": "https://nzdf.mil.nz",
+          "name": creatorId
+          }
+        },
+
+        //verb
+        "verb" : ADL.verbs.initialized,
+
+        //object
+        "object" : {
+          "id" : `https://nzdf.mil.nz/xapi/activities/events/${registration}/${encodeURIComponent(eventNameForUrl)}`,
+          "definition" : {
+            "name" : {
+              "en" : eventNameWithSpaces
+            },
+          },
+        },
+
+        "context" : {
+          "registration" : registration,
+          "platform" : "NZ ADL Event Creator",
+        },
+
+        "id" : ADL.ruuid(),
+
+    }
+
+
+    console.log(statement);
+
+
+    const WORKER_URL = "https://xapi.nzadl.deno.net/";
+
+    // Send statement to Cloudflare Worker via async fetch
+      try {
+        const response = await fetch(WORKER_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Pass": passwordField // Pass the password from targetUrl input
+          },
+          body: JSON.stringify(statement)
+        });
+
+        if (response.ok) {
+          console.log(`[${statement.id}]: Statement successfully dispatched to Worker.`);
+          statementStatus.classList.remove('is-info');
+          statementStatus.classList.add('is-success');
+          statementStatusText.textContent = 'Event creation successfully logged.';
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          console.error(`Worker error (${response.status}):`, errData);
+          statementStatus.classList.remove('is-info');
+          statementStatus.classList.add('is-danger');
+          statementStatusText.textContent = `Failed to log event: ${errData.error || response.statusText}`;
+        }
+      } catch (err) {
+        console.error("Network error sending statement:", err);
+        statementStatus.classList.remove('is-info');
+        statementStatus.classList.add('is-danger');
+        statementStatusText.textContent = 'Network error. Could not log event.';
+      }
+
+/*
+    ADL.XAPIWrapper.sendStatement(stmt, function(response, obj) {  
+        console.log("[" + obj.id + "]: " + response.status + " - " + response.statusText);
+
+        if (response.ok || response.status === 200) {
+          document.getElementById('checkinForm').classList.add('is-hidden');
+          document.getElementById('errorMessage').classList.add('is-hidden');
+          document.getElementById('successMessage').classList.remove('is-hidden');
+        } else {
+          throw new Error(`LRS responded with status: ${response.status}`);
+        }
+      } 
+    );
+
+    */
+
+      submitButton.classList.remove('is-loading');
+      submitButton.disabled = false;
     });
 
     // Helper: Download QR Image from Container
@@ -168,7 +285,7 @@
       if (!imageSrc) return;
 
       // Sanitize event name for filename
-      const safeFileName = (currentEventName || 'event').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const safeFileName = (eventNameWithSpaces || 'event').replaceAll(' ', '_').toLowerCase();
 
       // Trigger download using hidden anchor element
       const link = document.createElement('a');
@@ -188,8 +305,8 @@
       modalQrContainer.innerHTML = '';
       new QRCode(modalQrContainer, {
         text: currentFullUrl,
-        width: 320,
-        height: 320,
+        width: 400,
+        height: 400,
         correctLevel: QRCode.CorrectLevel.H
       });
 
@@ -204,6 +321,10 @@
     document.getElementById('openModalBtn').addEventListener('click', openModal);
     document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
     document.getElementById('modalBg').addEventListener('click', closeModal);
+
+    document.getElementById('closeStatusBtn').addEventListener('click', () => {
+      document.getElementById('statementStatus').classList.add('is-hidden');
+    });
 
     // Download Button Listeners
     document.getElementById('downloadInlineBtn').addEventListener('click', () => downloadQRCode('qrcode'));
