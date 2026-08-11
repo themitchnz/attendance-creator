@@ -196,8 +196,9 @@
         "object" : {
           "id" : `https://nzdf.mil.nz/xapi/activities/events/${registration}/${encodeURIComponent(eventNameForUrl)}`,
           "definition" : {
-            "name" : {
-              "en" : eventNameWithSpaces
+            "name" : { "en" : eventNameWithSpaces },
+            "extensions" : {
+              "eventURL" : currentFullUrl
             },
           },
         },
