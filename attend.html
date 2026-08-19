@@ -36,13 +36,37 @@
                 </div>
               </div>
 
-              <!-- Attendee Email -->
+              <!-- Attendee ID -->
               <div class="field">
                 <label class="label">Your ID</label>
                 <div class="control">
                   <input class="input" type="text" id="attendeeId" placeholder="e.g. 123456" required>
                 </div>
               </div>
+
+              <div class="field" id="comment_block" style="display: none;">
+                <label class="label">Comments or Feedback</label>
+                <div class="control">
+                  <textarea class="textarea" rows="3" id="comments" placeholder="Feedback comments"></textarea>
+                </div>
+              </div>
+
+              
+              <div class="field" id="rating_block" style="display: none;">
+                <label class="label">Your Rating</label>
+                  <div class="control">
+                    <div class="radios">
+                      <label class="radio"> <input type="radio" name="rate" value="1"/> 1 ★</label>
+                      <label class="radio"> <input type="radio" name="rate" value="2"/> 2 ★</label>
+                      <label class="radio"> <input type="radio" name="rate" value="3"/> 3 ★</label>
+                      <label class="radio"> <input type="radio" name="rate" value="4"/> 4 ★</label>
+                      <label class="radio"> <input type="radio" name="rate" value="5" checked/> 5 ★</label>
+ 
+</div>
+  </div>
+</div>
+
+
 
               <!-- Submit Button -->
               <div class="field mt-5">
@@ -99,6 +123,19 @@
       document.getElementById('creatorName').value = eventData.creator || 'Organizer';
       document.getElementById('eventDisplay').textContent = (eventData.event || 'Event Check-in').replace(/_/g, ' ');
       document.getElementById('hostDisplay').textContent = `Hosted by ${eventData.creator || 'Organizer'}`;
+
+      const hasComments = JSON.parse(atob(new URLSearchParams(window.location.search).get('data'))).cm;
+      const hasRating = JSON.parse(atob(new URLSearchParams(window.location.search).get('data'))).rt;
+      const hasAnon = JSON.parse(atob(new URLSearchParams(window.location.search).get('data'))).an;
+
+      if (hasComments) {
+        document.getElementById('comment_block').style.display = 'block';
+      }
+
+      if (hasRating) {
+        document.getElementById('rating_block').style.display = 'block';
+      }
+
     });
 
     // 2. Handle Form Submission & xAPI Construction
@@ -117,6 +154,15 @@
       // We need the registration from the decoded data to build the activity ID
       const registration = JSON.parse(atob(new URLSearchParams(window.location.search).get('data'))).reg;
       const passwordField = JSON.parse(atob(new URLSearchParams(window.location.search).get('data'))).pw;
+
+
+      const rateButton = document.querySelector('input[name="rate"]:checked');
+      const rateValue = rateButton.value;
+
+      const commentValue = document.getElementById('comments').value;
+
+
+      
 
 
        var statement = {
@@ -149,6 +195,17 @@
         },
 
         "id" : ADL.ruuid(),
+
+        "result" : {
+          "score" : {
+            "raw" : rateValue,
+            "min" : 1,
+            "max" : 5
+          },
+
+          "response" : commentValue
+
+        }
 
     }
 
