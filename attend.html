@@ -29,7 +29,7 @@
               <input type="hidden" id="creatorEmail" />
 
               <!-- Attendee Name -->
-              <div class="field">
+              <div class="field" id="name_block" style="display: block;">
                 <label class="label">Your Name</label>
                 <div class="control">
                   <input class="input" type="text" id="attendeeName" placeholder="e.g. Alex Mercer" required>
@@ -37,7 +37,7 @@
               </div>
 
               <!-- Attendee ID -->
-              <div class="field">
+              <div class="field" id="id_block" style="display: block;">
                 <label class="label">Your ID</label>
                 <div class="control">
                   <input class="input" type="text" id="attendeeId" placeholder="e.g. 123456" required>
@@ -134,6 +134,16 @@
 
       if (hasRating) {
         document.getElementById('rating_block').style.display = 'block';
+      }
+
+      if (hasAnon) {
+        document.getElementById('name_block').style.display = 'none';
+        document.getElementById('attendeeName').required = false;
+        document.getElementById('attendeeName').value = "Event Attendee";
+
+        document.getElementById('id_block').style.display = 'none';
+        document.getElementById('attendeeId').required = false;
+        document.getElementById('attendeeId').value = "anon-123";
       }
 
     });
@@ -249,11 +259,6 @@
         submitBtn.disabled = false;
       }
 
-  
-
-
-
-      
     });
   </script>
 </body>
