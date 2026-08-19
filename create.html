@@ -35,6 +35,26 @@
                 </div>
               </div>
 
+<div class="field">
+  <label class="label">Attendance Options</label>
+  <div class="checkboxes">
+  <label class="checkbox">
+    <input type="checkbox" id="rating"/>
+    Rating
+  </label>
+
+  <label class="checkbox">
+    <input type="checkbox" id="comments"/>
+    Comments
+  </label>
+  <label class="checkbox">
+    <input type="checkbox" id="anon"/>
+    Anonymous
+  </label>
+  </div>
+</div>
+              
+
               <!-- Creator Name -->
               <div class="field">
                 <label class="label">Host Name</label>
@@ -127,6 +147,9 @@
 
       const baseUrl = "https://themitchnz.github.io/attendance-creator/attend.html";
       const eventNameWithSpaces = document.getElementById('eventName').value.trim();
+      const hasRating = document.getElementById('rating').checked;
+      const hasComments = document.getElementById('comments').checked;
+      const hasAnon = document.getElementById('anon').checked;
       const creatorName = document.getElementById('creatorName').value.trim();
       const creatorId = document.getElementById('creatorId').value.trim();
       const passwordField = document.getElementById('targetUrl').value.trim();
@@ -139,7 +162,10 @@
         pw: passwordField,
         event: eventNameWithSpaces,
         creator: creatorName,
-        reg: registration
+        reg: registration,
+        rt: hasRating,
+        cm: hasComments,
+        an: hasAnon
       };
 
       // JSON.stringify, then Base64 encode
